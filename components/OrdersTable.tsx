@@ -94,6 +94,7 @@ export function OrdersTable({ initial }: { initial: OrderRow[] }) {
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 p-4">
         <input
           type="search"
+          maxLength={80}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar por código o cliente"

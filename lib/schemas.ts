@@ -14,18 +14,35 @@ export const resetSchema = z.object({
   count: z.number().int().min(100).max(1000).default(500),
 });
 
+/** Letters (any language, with accents), digits, spaces and . , ' & - */
+export const CUSTOMER_PATTERN = /^[\p{L}\p{N} .,'&-]+$/u;
+
+/** Plain non-negative decimal with up to 2 decimals: rejects "-5", "1e3", "0x10", "1.234". */
+export const MONEY_PATTERN = /^\d{1,7}(\.\d{1,2})?$/;
+
+export const MAX_ORDER_TOTAL = 1_000_000;
+
+/** Accepts a JSON number or a numeric string, but only in plain decimal notation. */
+function moneySchema(label: string) {
+  return z
+    .union([z.number(), z.string()], { error: `${label}: ingresa un monto válido` })
+    .transform((value) => (typeof value === "number" ? String(value) : value.trim()))
+    .pipe(z.string().regex(MONEY_PATTERN, `${label}: solo números positivos con máximo 2 decimales`))
+    .transform(Number);
+}
+
 export const createOrderSchema = z
   .object({
     customer: z
-      .string()
+      .string({ error: "El cliente es obligatorio" })
       .trim()
       .min(2, "El cliente debe tener al menos 2 caracteres")
-      .max(80, "El cliente no puede superar 80 caracteres"),
-    total: z.coerce
-      .number()
-      .positive("El total debe ser mayor a 0")
-      .max(1_000_000, "El total no puede superar 1,000,000"),
-    cost: z.coerce.number().min(0, "El costo no puede ser negativo"),
+      .max(80, "El cliente no puede superar 80 caracteres")
+      .regex(CUSTOMER_PATTERN, "El cliente solo puede tener letras, números, espacios y . , ' & -"),
+    total: moneySchema("Total")
+      .refine((v) => v > 0, "El total debe ser mayor a 0")
+      .refine((v) => v <= MAX_ORDER_TOTAL, "El total no puede superar $1,000,000"),
+    cost: moneySchema("Costo"),
   })
   .refine((order) => order.cost <= order.total, {
     message: "El costo no puede superar el total",
@@ -36,6 +53,6 @@ export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export const moveSchema = z.object({ status: statusSchema });
 
 export const bulkUpdateSchema = z.object({
-  ids: z.array(z.string().min(1)).min(1).max(200),
+  ids: z.array(z.string().min(1).max(40)).min(1).max(200),
   status: statusSchema,
 });

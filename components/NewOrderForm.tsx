@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createOrderSchema } from "@/lib/schemas";
+import { sanitizeCustomerInput, sanitizeMoneyInput } from "@/lib/input";
 
-type FieldErrors = Partial<Record<"customer" | "total" | "cost", string>>;
+type Field = "customer" | "total" | "cost";
+type FieldErrors = Partial<Record<Field, string>>;
 
 const inputClass =
   "mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 aria-invalid:border-red-400";
@@ -14,7 +16,7 @@ const inputClass =
 function toFieldErrors(issues: { path: PropertyKey[]; message: string }[]): FieldErrors {
   const errors: FieldErrors = {};
   for (const issue of issues) {
-    const field = issue.path[0] as keyof FieldErrors;
+    const field = issue.path[0] as Field;
     errors[field] ??= issue.message;
   }
   return errors;
@@ -22,15 +24,20 @@ function toFieldErrors(issues: { path: PropertyKey[]; message: string }[]): Fiel
 
 export function NewOrderForm() {
   const router = useRouter();
+  const [values, setValues] = useState<Record<Field, string>>({ customer: "", total: "", cost: "" });
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
 
+  function update(field: Field, raw: string) {
+    const sanitize = field === "customer" ? sanitizeCustomerInput : sanitizeMoneyInput;
+    setValues((prev) => ({ ...prev, [field]: sanitize(raw) }));
+    setErrors((prev) => ({ ...prev, [field]: undefined }));
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const payload = { customer: form.get("customer"), total: form.get("total"), cost: form.get("cost") };
 
-    const parsed = createOrderSchema.safeParse(payload);
+    const parsed = createOrderSchema.safeParse(values);
     if (!parsed.success) {
       setErrors(toFieldErrors(parsed.error.issues));
       return;
@@ -69,11 +76,16 @@ export function NewOrderForm() {
             autoComplete="off"
             required
             maxLength={80}
+            value={values.customer}
+            onChange={(e) => update("customer", e.target.value)}
             aria-invalid={!!errors.customer}
+            aria-describedby="customer-hint"
             className={inputClass}
           />
         </label>
-        {errors.customer && <p className="mt-1 text-xs text-red-600">{errors.customer}</p>}
+        <p id="customer-hint" className={`mt-1 text-xs ${errors.customer ? "text-red-600" : "text-slate-400"}`}>
+          {errors.customer ?? "Letras, números, espacios y . , ' & - (2 a 80 caracteres)"}
+        </p>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
@@ -82,32 +94,42 @@ export function NewOrderForm() {
             Total (MXN)
             <input
               name="total"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min="0.01"
-              step="0.01"
+              autoComplete="off"
+              placeholder="0.00"
               required
+              value={values.total}
+              onChange={(e) => update("total", e.target.value)}
               aria-invalid={!!errors.total}
+              aria-describedby="total-hint"
               className={inputClass}
             />
           </label>
-          {errors.total && <p className="mt-1 text-xs text-red-600">{errors.total}</p>}
+          <p id="total-hint" className={`mt-1 text-xs ${errors.total ? "text-red-600" : "text-slate-400"}`}>
+            {errors.total ?? "Mayor a 0, hasta $1,000,000"}
+          </p>
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700">
             Costo (MXN)
             <input
               name="cost"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min="0"
-              step="0.01"
+              autoComplete="off"
+              placeholder="0.00"
               required
+              value={values.cost}
+              onChange={(e) => update("cost", e.target.value)}
               aria-invalid={!!errors.cost}
+              aria-describedby="cost-hint"
               className={inputClass}
             />
           </label>
-          {errors.cost && <p className="mt-1 text-xs text-red-600">{errors.cost}</p>}
+          <p id="cost-hint" className={`mt-1 text-xs ${errors.cost ? "text-red-600" : "text-slate-400"}`}>
+            {errors.cost ?? "No negativo y no mayor al total"}
+          </p>
         </div>
       </div>
 
