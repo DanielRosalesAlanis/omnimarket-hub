@@ -50,9 +50,23 @@ export const createOrderSchema = z
   });
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 
+/** Editing an order validates the same fields and rules as creating one. */
+export const updateOrderSchema = createOrderSchema;
+
 export const moveSchema = z.object({ status: statusSchema });
 
-export const bulkUpdateSchema = z.object({
-  ids: z.array(z.string().min(1).max(40)).min(1).max(200),
-  status: statusSchema,
+const idsSchema = z.array(z.string().min(1).max(40)).min(1).max(200);
+
+export const bulkUpdateSchema = z.object({ ids: idsSchema, status: statusSchema });
+
+export const bulkDeleteSchema = z.object({ ids: idsSchema });
+
+export const ORDERS_PAGE_SIZE = 25;
+
+/** URL query of the orders table. Invalid values fall back to defaults instead of failing. */
+export const ordersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).catch(1),
+  q: z.string().trim().max(80).catch(""),
+  status: z.enum([...STATUSES, "ALL"]).catch("ALL"),
 });
+export type OrdersQuery = z.infer<typeof ordersQuerySchema>;

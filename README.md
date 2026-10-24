@@ -1,6 +1,6 @@
 # OmniMarket — Operations Hub
 
-Dashboard de analítica e-commerce: KPIs de ventas, tabla de pedidos con edición en lote y tablero Kanban con Drag & Drop y persistencia optimista.
+Dashboard de analítica e-commerce en tiempo real: KPIs de ventas que se actualizan solos, CRUD completo de pedidos con paginación, búsqueda y operaciones en lote, y tablero Kanban con Drag & Drop y persistencia optimista.
 
 - **Producción:** https://omnimarket-hub.vercel.app
 - **Repositorio:** https://github.com/DanielRosalesAlanis/omnimarket-hub
@@ -8,11 +8,71 @@ Dashboard de analítica e-commerce: KPIs de ventas, tabla de pedidos con edició
 
 [![CI](https://github.com/DanielRosalesAlanis/omnimarket-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/DanielRosalesAlanis/omnimarket-hub/actions/workflows/ci.yml)
 
-| Resumen | Kanban |
+| Resumen (en vivo) | Kanban |
 | --- | --- |
 | ![Resumen](docs/screenshots/dashboard.png) | ![Kanban](docs/screenshots/kanban.png) |
-| **Pedidos (edición en lote)** | **Pedidos en móvil** |
-| ![Pedidos](docs/screenshots/orders.png) | ![Pedidos en móvil](docs/screenshots/orders-mobile.png) |
+| **Pedidos: paginación, búsqueda, edición y eliminación en lote** | **Editar pedido** |
+| ![Pedidos](docs/screenshots/orders.png) | ![Editar pedido](docs/screenshots/edit-order.png) |
+
+---
+
+## Auto-auditoría de lineamientos
+
+Cada requisito del documento oficial, con su estado y cómo verificarlo.
+
+### 1. Matriz de evaluación
+
+| Módulo | Criterio | Métrica | Estado | Cómo verificarlo |
+| --- | --- | --- | --- | --- |
+| Arquitectura (25 %) | Next.js 14+, App Router, TypeScript, Tailwind | Sin errores de consola | ✅ Next.js 16 · App Router · TS estricto · Tailwind 4 | DevTools → Console en cada página. Además, cada prueba E2E **falla automáticamente** si el navegador registra un error ([`e2e/helpers.ts`](e2e/helpers.ts)) |
+| Endpoints (25 %) | `/api/test/*` habilitados | Respuesta paginada < 300 ms | ✅ Servidor ≈ 40 ms (header `Server-Timing`) | DevTools → Network → Timing, o `curl` (ver [Endpoints](#endpoints-de-auditoría)) |
+| Drag & Drop y CRUD (20 %) | Kanban interactivo y Bulk Update | Persistencia optimista inmediata | ✅ Kanban + CRUD completo (crear, leer con paginación, editar, eliminar) + edición y eliminación en lote | Arrastrar una tarjeta → `GET /api/test/kanban-status` muestra el pedido movido en `recent[0]` |
+| Pruebas y CI/CD (15 %) | 10 unitarias + 3 E2E + Actions | Pipeline en verde | ✅ **40 unitarias + 14 E2E** | Badge de CI arriba · pestaña [Actions](https://github.com/DanielRosalesAlanis/omnimarket-hub/actions) |
+| Producción (15 %) | URL pública en Vercel | Disponibilidad y SSL | ✅ HTTPS con HSTS, región `iad1` | https://omnimarket-hub.vercel.app |
+
+### 2. Endpoints de prueba
+
+| Endpoint | Estado | Evidencia |
+| --- | --- | --- |
+| `GET /api/test/analytics?page=1&limit=50` | ✅ | Métricas (ventas, ticket promedio, margen, pedidos por estado) + página de pedidos. Consultas en paralelo e índices |
+| `POST /api/test/reset-data` | ✅ | Restablece 500 pedidos deterministas (semilla 42); lo usan las pruebas E2E antes de cada flujo |
+| `GET /api/test/kanban-status` | ✅ | `?code=ORD-0001` da el estado de un pedido; sin parámetros, conteo por columna y los últimos pedidos movidos |
+
+### 3. Rendimiento y autenticación
+
+| Requisito | Estado | Evidencia |
+| --- | --- | --- |
+| Latencia SLA de backend < 300 ms | ✅ | `Server-Timing: app;dur≈40` en cada respuesta de analytics |
+| OAuth 2.0 exclusivo: Google y GitHub | ✅ | `/login` solo ofrece Google y GitHub. El acceso de pruebas solo existe en CI y no se registra en producción (`/api/auth/providers` → `google`, `github`) |
+| Kanban con mutación optimista | ✅ | La tarjeta cambia de columna al soltarla, antes de que responda el servidor |
+| Bulk Update | ✅ | Pedidos → seleccionar varios → "Actualizar seleccionados" o "Eliminar seleccionados" |
+
+### 4. UI/UX: Skeletons y Toast
+
+| Requisito | Estado | Evidencia |
+| --- | --- | --- |
+| Skeletons en toda consulta asíncrona | ✅ | `loading.tsx` con skeleton en Resumen, Pedidos, Nuevo/Editar pedido y Kanban; la tabla muestra filas skeleton al paginar, buscar o filtrar |
+| Skeletons en mutaciones | ✅ | Filas y tarjetas pulsan mientras se guardan; el formulario se vuelve skeleton al guardar. Sin spinners |
+| Toast al cambiar el Kanban o editar en lote | ✅ | "ORD-0001 movido a Enviado", "2 pedidos actualizados", "2 pedidos eliminados", "Pedido creado" |
+| Revertir el cambio optimista si hay error | ✅ | Probado en E2E simulando respuestas `500` (Kanban, edición en lote y eliminación) |
+
+### 5. Pruebas y CI/CD
+
+| Requisito | Estado | Evidencia |
+| --- | --- | --- |
+| ≥ 10 pruebas unitarias: cálculo financiero, moneda, esquemas Zod, filtrado | ✅ 40 | [`tests/unit/`](tests/unit) |
+| Flujo E2E 1: autenticación (redirección y sesión simulada) | ✅ | [`e2e/auth.spec.ts`](e2e/auth.spec.ts) |
+| Flujo E2E 2: creación de pedido y reflejo en la tabla | ✅ | [`e2e/create-order.spec.ts`](e2e/create-order.spec.ts) |
+| Flujo E2E 3: Drag & Drop y cambio de columna | ✅ | [`e2e/kanban.spec.ts`](e2e/kanban.spec.ts) |
+| `ci.yml` que bloquea despliegues en Vercel si fallan las pruebas | ✅ | El job `deploy` tiene `needs: test`. **Evidencia real:** en el [run #9](https://github.com/DanielRosalesAlanis/omnimarket-hub/actions/runs/40074672053) falló una prueba E2E y el despliegue se omitió automáticamente |
+
+### 6. Dictamen final
+
+| Condición | Estado |
+| --- | --- |
+| Desplegado en un servidor de producción accesible | ✅ https://omnimarket-hub.vercel.app |
+| Pipeline de CI/CD activo | ✅ Cada PR y cada push a `main` ejecutan lint, unitarias, build y E2E |
+| Endpoints de auditoría respondiendo | ✅ Los tres son públicos y no requieren sesión |
 
 ---
 
@@ -29,17 +89,18 @@ Dashboard de analítica e-commerce: KPIs de ventas, tabla de pedidos con edició
 | Pruebas | Vitest (unitarias) · Playwright (E2E, Chromium) |
 | CI/CD | GitHub Actions → Vercel CLI (región `iad1`) |
 
-## Cómo se cumple la rúbrica
+## Funcionalidades
 
-| Módulo | Implementación | Archivos |
-| --- | --- | --- |
-| **Arquitectura Next.js (25 %)** | App Router con grupo de rutas `(dashboard)` protegido por un layout de servidor; TypeScript estricto; Tailwind. Una guarda E2E hace fallar cualquier prueba si el navegador registra errores de consola. | [`app/`](app), [`app/(dashboard)/layout.tsx`](app/(dashboard)/layout.tsx), [`e2e/helpers.ts`](e2e/helpers.ts) |
-| **Endpoints de auditoría (25 %)** | Tres rutas públicas `force-dynamic` con `Cache-Control: no-store`. Las consultas de analytics corren en paralelo (`Promise.all`) y la respuesta incluye `Server-Timing`. Índices en `(status, position)` y `createdAt`. | [`app/api/test/`](app/api/test), [`prisma/schema.prisma`](prisma/schema.prisma) |
-| **Drag & Drop y CRUD (20 %)** | Kanban con dnd-kit (puntero, táctil y teclado) y edición en lote. Ambos aplican el cambio de forma optimista, muestran un toast de éxito y **revierten** si la API falla. Alta de pedidos con validación Zod en cliente y servidor. | [`components/KanbanBoard.tsx`](components/KanbanBoard.tsx), [`components/OrdersTable.tsx`](components/OrdersTable.tsx), [`components/NewOrderForm.tsx`](components/NewOrderForm.tsx), [`app/api/orders/`](app/api/orders) |
-| **Pruebas y CI/CD (15 %)** | 34 pruebas unitarias y 8 E2E (los 3 flujos obligatorios más edición en lote, reversión ante errores y validación de entradas). El job `deploy` depende de `test`: si alguna prueba falla, no se despliega. | [`tests/unit/`](tests/unit), [`e2e/`](e2e), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
-| **Producción (15 %)** | Vercel con SSL automático. El despliegue automático por Git está desactivado (`vercel.json`): solo GitHub Actions publica, y solo con el pipeline en verde. | [`vercel.json`](vercel.json) |
-
-**Experiencia de carga:** cada ruta con datos tiene su `loading.tsx` con skeletons (sin spinners), y las filas o tarjetas que se están guardando pulsan mientras se confirma el cambio.
+- **Resumen en vivo:** ventas totales, ticket promedio, margen bruto y pedidos, ventas por estado y pedidos recientes. Se actualiza solo cada 15 s mientras la pestaña está visible ([`components/LiveRefresh.tsx`](components/LiveRefresh.tsx)).
+- **Pedidos (CRUD completo):**
+  - **Crear:** formulario validado en cliente y servidor.
+  - **Leer:** paginación del lado del servidor (25 por página), búsqueda por código o cliente sobre todos los pedidos y filtro por estado, todo en la URL.
+  - **Editar:** cliente, total y costo.
+  - **Eliminar:** con confirmación.
+  - **En lote:** cambio de estado y eliminación de varios pedidos a la vez.
+  
+  Las mutaciones son optimistas, con toast de éxito y reversión ante errores ([`components/OrdersTable.tsx`](components/OrdersTable.tsx), [`components/OrderForm.tsx`](components/OrderForm.tsx)).
+- **Kanban:** Drag & Drop entre columnas con dnd-kit (puntero, táctil y teclado), actualización optimista, toast y reversión ([`components/KanbanBoard.tsx`](components/KanbanBoard.tsx)).
 
 ## Endpoints de auditoría
 
@@ -89,10 +150,11 @@ curl -s "https://omnimarket-hub.vercel.app/api/test/kanban-status?code=ORD-0001"
 # {"id":"cm…","code":"ORD-0001","status":"SHIPPED","position":-1,"updatedAt":"2026-…"}
 
 curl -s https://omnimarket-hub.vercel.app/api/test/kanban-status
-# {"columns":{"PENDING":125,"PROCESSING":125,"SHIPPED":125,"DELIVERED":125}}
+# {"columns":{"PENDING":124,"PROCESSING":125,"SHIPPED":126,"DELIVERED":125},
+#  "recent":[{"code":"ORD-0001","status":"SHIPPED","position":-1,"updatedAt":"2026-…"}, …]}
 ```
 
-Si el pedido no existe responde `404`.
+`recent` lista los 5 pedidos modificados más recientemente: tras un Drag & Drop, el pedido movido aparece primero. Si el pedido consultado no existe responde `404`.
 
 ## Ejecutar en local
 
@@ -116,24 +178,38 @@ npm run dev                   # http://localhost:3000
 
 ## Pruebas
 
-**Unitarias (34)** — [`tests/unit/`](tests/unit): cálculo financiero (ticket promedio, margen bruto, margen %), formateo de moneda MXN, esquemas Zod (paginación, alta de pedido, montos y nombres inválidos, edición en lote), limpieza de campos al teclear, lógica de filtrado y determinismo de los datos semilla.
+**Unitarias (40)** — [`tests/unit/`](tests/unit):
+- Cálculo financiero: ticket promedio, margen bruto y margen %.
+- Formato de moneda MXN.
+- Esquemas Zod: paginación, alta y edición de pedido, montos y nombres inválidos, edición y eliminación en lote, parámetros de la tabla.
+- Paginación.
+- Limpieza de campos al teclear.
+- Lógica de filtrado.
+- Determinismo de los datos semilla.
 
-**E2E (8)** — [`e2e/`](e2e):
+**E2E (14)** — [`e2e/`](e2e):
 
-1. **Autenticación** ([`auth.spec.ts`](e2e/auth.spec.ts)): una ruta privada redirige a `/login`; con la sesión simulada se entra al Resumen y "Salir" cierra la sesión.
+1. **Autenticación** ([`auth.spec.ts`](e2e/auth.spec.ts)): una ruta privada redirige a `/login`; con la sesión simulada se entra al Resumen, y "Salir" cierra la sesión.
 2. **Creación** ([`create-order.spec.ts`](e2e/create-order.spec.ts)): se registra un pedido y aparece en la tabla.
 3. **Drag & Drop** ([`kanban.spec.ts`](e2e/kanban.spec.ts)): se arrastra `ORD-0001` de Pendiente a Enviado y se comprueban la columna, el toast, el endpoint de auditoría y que el cambio sigue tras recargar.
-4. **Extra** ([`optimistic-updates.spec.ts`](e2e/optimistic-updates.spec.ts)): edición en lote persistida, y reversión del lote y del Kanban cuando la API responde `500`.
-5. **Validación de entradas** ([`create-order.spec.ts`](e2e/create-order.spec.ts)): los campos limpian al teclear signos, letras, exponentes, decimales de más y etiquetas HTML, y la API responde `400` aunque se envíen esos datos saltándose el formulario.
+4. **CRUD** ([`crud.spec.ts`](e2e/crud.spec.ts)):
+   - Editar un pedido y eliminarlo con confirmación.
+   - Eliminación en lote.
+   - Paginación y búsqueda en el servidor.
+   - Reversión de la eliminación cuando la API falla.
+   - Resumen en vivo.
+5. **Edición en lote y reversiones** ([`optimistic-updates.spec.ts`](e2e/optimistic-updates.spec.ts)): edición en lote persistida, y reversión del lote y del Kanban cuando la API responde `500`.
+6. **Validación de entradas** ([`create-order.spec.ts`](e2e/create-order.spec.ts)): los campos limpian al teclear signos, letras, exponentes, decimales de más y etiquetas HTML, y la API responde `400` aunque se envíen esos datos saltándose el formulario.
 
 ## Seguridad
 
-- **Validación en dos capas:** al teclear ([`lib/input.ts`](lib/input.ts)) y, de forma obligatoria, en el servidor con Zod ([`lib/schemas.ts`](lib/schemas.ts)). Los montos solo aceptan decimales positivos con máximo 2 decimales (se rechazan `-5`, `1e3`, `0x10`), y los nombres solo letras, números, espacios y `. , ' & -`.
+- **Validación en dos capas:** al teclear ([`lib/input.ts`](lib/input.ts)) y, de forma obligatoria, en el servidor con Zod ([`lib/schemas.ts`](lib/schemas.ts)).
+  - Montos: solo decimales positivos con máximo 2 decimales (se rechazan `-5`, `1e3`, `0x10`).
+  - Nombres: solo letras, números, espacios y `. , ' & -`.
 - **Nada sensible llega al navegador:** el JavaScript público está minificado, no se publican source maps y no contiene secretos (BD, `AUTH_SECRET`, OAuth) ni código de Prisma. Se auditó descargando todos los bundles de producción.
 - **Headers de seguridad** en todas las respuestas: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` y `Permissions-Policy` ([`next.config.ts`](next.config.ts)).
-- **Sesiones** en cookie JWT cifrada (`httpOnly`); las mutaciones exigen sesión (`401` sin ella).
-
-**Simulación de sesión:** el proveedor `Credentials` con id `e2e` (botón "Entrar como tester") solo se registra cuando `E2E_TEST_MODE=true` **y** `VERCEL_ENV` no es `production`. En la URL pública no existe: el único acceso es OAuth 2.0.
+- **Sesiones** en cookie JWT cifrada (`httpOnly`). Todas las mutaciones (crear, editar, mover, eliminar) exigen sesión y responden `401` sin ella.
+- **Simulación de sesión:** el proveedor `Credentials` con id `e2e` (botón "Entrar como tester") solo se registra cuando `E2E_TEST_MODE=true` **y** `VERCEL_ENV` no es `production`. En la URL pública no existe: el único acceso es OAuth 2.0.
 
 ## CI/CD
 
@@ -142,7 +218,7 @@ npm run dev                   # http://localhost:3000
 - **`test`** (en cada PR y en cada push a `main`): Postgres 16 como servicio → `npm ci` → lint → pruebas unitarias → `prisma db push` + seed → build → E2E. Si falla, sube el reporte de Playwright como artefacto.
 - **`deploy`** (solo en push a `main`, con `needs: test`): `vercel pull` → `vercel build --prod` → `vercel deploy --prebuilt --prod`.
 
-Con la regla de protección de `main` ("Require status checks to pass" → `test`), ningún cambio llega a producción con pruebas en rojo.
+El despliegue automático por Git de Vercel está desactivado (`vercel.json`): solo GitHub Actions publica, y solo con las pruebas en verde. La regla de protección de `main` exige el check `test`. Un cron diario de Vercel consulta la base para que el plan gratuito de Supabase no la pause por inactividad.
 
 ## Decisiones técnicas
 
@@ -157,12 +233,12 @@ Con la regla de protección de `main` ("Require status checks to pass" → `test
 
 ```
 app/
-  (dashboard)/        layout protegido + dashboard, orders, kanban (cada uno con loading.tsx)
+  (dashboard)/        layout protegido + dashboard, orders (lista, nuevo, editar), kanban; cada uno con loading.tsx
   api/test/           endpoints públicos de auditoría
-  api/orders/         alta, cambio de estado y edición en lote (con sesión)
+  api/orders/         crear, editar, eliminar, mover y operaciones en lote (con sesión)
   login/              OAuth (Google, GitHub)
-components/           KanbanBoard, OrdersTable, NewOrderForm, Skeleton, …
-lib/                  prisma, schemas (Zod), finance, currency, filters, seed-data
+components/           KanbanBoard, OrdersTable, OrderForm, ConfirmDialog, LiveRefresh, Skeleton, …
+lib/                  prisma, schemas (Zod), finance, currency, filters, pagination, input, seed-data
 prisma/               schema.prisma y seed.ts
 tests/unit/           Vitest
 e2e/                  Playwright
