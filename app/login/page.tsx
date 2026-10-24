@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, isE2E, signIn } from "@/auth";
 
@@ -79,6 +80,15 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </div>
 
         <p className="mt-8 text-center text-xs text-slate-400">Acceso exclusivo mediante OAuth 2.0</p>
+        <p className="mt-2 text-center text-xs text-slate-400">
+          <Link href="/privacy" className="hover:text-slate-600">
+            Privacidad
+          </Link>
+          {" · "}
+          <Link href="/terms" className="hover:text-slate-600">
+            Términos
+          </Link>
+        </p>
       </div>
     </main>
   );
