@@ -28,5 +28,6 @@ if (isE2E) {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
   session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  // Auth errors land on /login with ?error=…, which renders a friendly Spanish message.
+  pages: { signIn: "/login", error: "/login" },
 });

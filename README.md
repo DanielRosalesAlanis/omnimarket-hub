@@ -2,11 +2,11 @@
 
 Dashboard de analítica e-commerce: KPIs de ventas, tabla de pedidos con edición en lote y tablero Kanban con Drag & Drop y persistencia optimista.
 
-- **Producción:** https://&lt;dominio&gt;.vercel.app <!-- TODO: reemplazar -->
-- **Repositorio:** https://github.com/&lt;usuario&gt;/omnimarket-hub <!-- TODO: reemplazar -->
+- **Producción:** https://omnimarket-hub.vercel.app
+- **Repositorio:** https://github.com/DanielRosalesAlanis/omnimarket-hub
 - **Endpoints de auditoría:** `/api/test/analytics` · `/api/test/reset-data` · `/api/test/kanban-status`
 
-[![CI](https://github.com/<usuario>/omnimarket-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/<usuario>/omnimarket-hub/actions/workflows/ci.yml) <!-- TODO: reemplazar <usuario> -->
+[![CI](https://github.com/DanielRosalesAlanis/omnimarket-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/DanielRosalesAlanis/omnimarket-hub/actions/workflows/ci.yml)
 
 | Resumen | Kanban |
 | --- | --- |
@@ -50,7 +50,7 @@ Son públicos a propósito para que el evaluador pueda usarlos sin iniciar sesi�
 Métricas de ventas y pedidos paginados (`page` ≥ 1, `limit` entre 1 y 100). Si los parámetros no son válidos responde `400` con el detalle (`issues`).
 
 ```bash
-curl -s -w "\n%{http_code} %{time_total}s\n" "https://<dominio>/api/test/analytics?page=1&limit=2"
+curl -s -w "\n%{http_code} %{time_total}s\n" "https://omnimarket-hub.vercel.app/api/test/analytics?page=1&limit=2"
 ```
 
 ```json
@@ -76,17 +76,17 @@ Headers: `Cache-Control: no-store` y `Server-Timing: app;dur=<ms>`. Todos los im
 Restablece la base a un conjunto determinista (PRNG mulberry32, semilla 42). `ORD-0001` siempre existe en estado `PENDING` y `position: 0`. El body es opcional: `{ "count": 100–1000 }` (500 por defecto).
 
 ```bash
-curl -s -X POST https://<dominio>/api/test/reset-data
+curl -s -X POST https://omnimarket-hub.vercel.app/api/test/reset-data
 # {"ok":true,"orders":500}
 ```
 
 ### `GET /api/test/kanban-status`
 
 ```bash
-curl -s "https://<dominio>/api/test/kanban-status?code=ORD-0001"   # también acepta ?id=<id>
+curl -s "https://omnimarket-hub.vercel.app/api/test/kanban-status?code=ORD-0001"   # también acepta ?id=<id>
 # {"id":"cm…","code":"ORD-0001","status":"SHIPPED","position":-1,"updatedAt":"2026-…"}
 
-curl -s https://<dominio>/api/test/kanban-status
+curl -s https://omnimarket-hub.vercel.app/api/test/kanban-status
 # {"columns":{"PENDING":125,"PROCESSING":125,"SHIPPED":125,"DELIVERED":125}}
 ```
 
