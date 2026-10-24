@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -28,6 +28,8 @@ export type KanbanOrder = {
   position: number;
 };
 
+const subscribeNoop = () => () => {};
+
 type Props = {
   initial: KanbanOrder[];
   totals: Record<Status, number>;
@@ -45,6 +47,8 @@ export function KanbanBoard({ initial, totals: initialTotals }: Props) {
   }
   const [saving, setSaving] = useState<ReadonlySet<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
+  // false on the server and during hydration, true once the board is interactive.
+  const hydrated = useSyncExternalStore(subscribeNoop, () => true, () => false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -125,7 +129,11 @@ export function KanbanBoard({ initial, totals: initialTotals }: Props) {
       onDragCancel={() => setActiveId(null)}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        data-testid="kanban-board"
+        data-hydrated={hydrated}
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      >
         {STATUSES.map((status) => (
           <KanbanColumn
             key={status}

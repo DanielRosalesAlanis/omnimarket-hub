@@ -41,6 +41,12 @@ export async function login(page: Page) {
 
 /** dnd-kit listens to real pointer movement, so the drag is performed step by step. */
 export async function dragTo(page: Page, source: Locator, target: Locator) {
+  // boundingBox() does not auto-wait: make sure both elements are rendered and that
+  // React has hydrated the board (dnd-kit listeners only exist after hydration).
+  await expect(source).toBeVisible();
+  await expect(target).toBeVisible();
+  await expect(page.getByTestId("kanban-board")).toHaveAttribute("data-hydrated", "true");
+
   const s = (await source.boundingBox())!;
   const t = (await target.boundingBox())!;
   await page.mouse.move(s.x + s.width / 2, s.y + s.height / 2);
