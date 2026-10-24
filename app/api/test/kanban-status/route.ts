@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  * GET /api/test/kanban-status?code=ORD-0001   (or ?id=<cuid>)
  *   → current status/position of one order, e.g. after a drag & drop.
  * GET /api/test/kanban-status
- *   → number of orders per Kanban column.
+ *   → number of orders per Kanban column and the 5 most recently updated orders.
  */
 export async function GET(req: NextRequest) {
   const startedAt = performance.now();
@@ -27,9 +27,17 @@ export async function GET(req: NextRequest) {
     return json(order, { headers: headers() });
   }
 
-  const groups = await prisma.order.groupBy({ by: ["status"], _count: { _all: true } });
+  const [groups, recent] = await Promise.all([
+    prisma.order.groupBy({ by: ["status"], _count: { _all: true } }),
+    // The order moved last (e.g. by a drag & drop) is always first here.
+    prisma.order.findMany({
+      orderBy: [{ updatedAt: "desc" }, { code: "asc" }],
+      take: 5,
+      select: { code: true, status: true, position: true, updatedAt: true },
+    }),
+  ]);
   const columns = Object.fromEntries(STATUSES.map((s) => [s, 0])) as Record<Status, number>;
   for (const group of groups) columns[group.status] = group._count._all;
 
-  return json({ columns }, { headers: headers() });
+  return json({ columns, recent }, { headers: headers() });
 }

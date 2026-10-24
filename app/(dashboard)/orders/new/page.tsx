@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { NewOrderForm } from "@/components/NewOrderForm";
+import { OrderForm } from "@/components/OrderForm";
 
 export const metadata: Metadata = { title: "Nuevo pedido" };
 
@@ -15,7 +15,7 @@ export default function NewOrderPage() {
         <p className="mt-1 text-sm text-slate-500">El pedido se registra en estado Pendiente.</p>
       </div>
       <div className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <NewOrderForm />
+        <OrderForm mode="create" />
       </div>
     </div>
   );

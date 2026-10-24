@@ -7,11 +7,13 @@ import { averageTicket, grossMarginCents, marginPercent } from "@/lib/finance";
 import { formatMXN } from "@/lib/currency";
 import { formatDate } from "@/lib/orders";
 import { StatusBadge } from "@/components/StatusBadge";
+import { LiveRefresh } from "@/components/LiveRefresh";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Resumen" };
 
 const numberFormat = new Intl.NumberFormat("es-MX");
+const timeFormat = new Intl.DateTimeFormat("es-MX", { timeStyle: "medium", timeZone: "America/Mexico_City" });
 
 export default async function DashboardPage() {
   const [aggregate, byStatus, recent] = await Promise.all([
@@ -47,9 +49,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Resumen</h1>
-        <p className="mt-1 text-sm text-slate-500">Indicadores clave de ventas y operación</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Resumen</h1>
+          <p className="mt-1 text-sm text-slate-500">Indicadores clave de ventas y operación</p>
+        </div>
+        <LiveRefresh updatedAt={timeFormat.format(new Date())} />
       </div>
 
       <section aria-label="Indicadores clave" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
