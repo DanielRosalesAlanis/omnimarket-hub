@@ -80,6 +80,8 @@ curl -s -X POST https://omnimarket-hub.vercel.app/api/test/reset-data
 # {"ok":true,"orders":500}
 ```
 
+Si se abre en el navegador (`GET`), muestra una página de ayuda con un botón que ejecuta el `POST`. El `GET` nunca modifica datos.
+
 ### `GET /api/test/kanban-status`
 
 ```bash
