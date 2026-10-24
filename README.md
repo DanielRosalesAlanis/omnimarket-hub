@@ -36,7 +36,7 @@ Dashboard de analítica e-commerce: KPIs de ventas, tabla de pedidos con edició
 | **Arquitectura Next.js (25 %)** | App Router con grupo de rutas `(dashboard)` protegido por un layout de servidor; TypeScript estricto; Tailwind. Una guarda E2E hace fallar cualquier prueba si el navegador registra errores de consola. | [`app/`](app), [`app/(dashboard)/layout.tsx`](app/(dashboard)/layout.tsx), [`e2e/helpers.ts`](e2e/helpers.ts) |
 | **Endpoints de auditoría (25 %)** | Tres rutas públicas `force-dynamic` con `Cache-Control: no-store`. Las consultas de analytics corren en paralelo (`Promise.all`) y la respuesta incluye `Server-Timing`. Índices en `(status, position)` y `createdAt`. | [`app/api/test/`](app/api/test), [`prisma/schema.prisma`](prisma/schema.prisma) |
 | **Drag & Drop y CRUD (20 %)** | Kanban con dnd-kit (puntero, táctil y teclado) y edición en lote. Ambos aplican el cambio de forma optimista, muestran un toast de éxito y **revierten** si la API falla. Alta de pedidos con validación Zod en cliente y servidor. | [`components/KanbanBoard.tsx`](components/KanbanBoard.tsx), [`components/OrdersTable.tsx`](components/OrdersTable.tsx), [`components/NewOrderForm.tsx`](components/NewOrderForm.tsx), [`app/api/orders/`](app/api/orders) |
-| **Pruebas y CI/CD (15 %)** | 19 pruebas unitarias y 7 E2E (los 3 flujos obligatorios más edición en lote y reversión ante errores). El job `deploy` depende de `test`: si alguna prueba falla, no se despliega. | [`tests/unit/`](tests/unit), [`e2e/`](e2e), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+| **Pruebas y CI/CD (15 %)** | 34 pruebas unitarias y 8 E2E (los 3 flujos obligatorios más edición en lote, reversión ante errores y validación de entradas). El job `deploy` depende de `test`: si alguna prueba falla, no se despliega. | [`tests/unit/`](tests/unit), [`e2e/`](e2e), [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 | **Producción (15 %)** | Vercel con SSL automático. El despliegue automático por Git está desactivado (`vercel.json`): solo GitHub Actions publica, y solo con el pipeline en verde. | [`vercel.json`](vercel.json) |
 
 **Experiencia de carga:** cada ruta con datos tiene su `loading.tsx` con skeletons (sin spinners), y las filas o tarjetas que se están guardando pulsan mientras se confirma el cambio.
@@ -116,14 +116,22 @@ npm run dev                   # http://localhost:3000
 
 ## Pruebas
 
-**Unitarias (19)** — [`tests/unit/`](tests/unit): cálculo financiero (ticket promedio, margen bruto, margen %), formateo de moneda MXN, esquemas Zod (paginación, alta de pedido, edición en lote), lógica de filtrado y determinismo de los datos semilla.
+**Unitarias (34)** — [`tests/unit/`](tests/unit): cálculo financiero (ticket promedio, margen bruto, margen %), formateo de moneda MXN, esquemas Zod (paginación, alta de pedido, montos y nombres inválidos, edición en lote), limpieza de campos al teclear, lógica de filtrado y determinismo de los datos semilla.
 
-**E2E (7)** — [`e2e/`](e2e):
+**E2E (8)** — [`e2e/`](e2e):
 
 1. **Autenticación** ([`auth.spec.ts`](e2e/auth.spec.ts)): una ruta privada redirige a `/login`; con la sesión simulada se entra al Resumen y "Salir" cierra la sesión.
 2. **Creación** ([`create-order.spec.ts`](e2e/create-order.spec.ts)): se registra un pedido y aparece en la tabla.
 3. **Drag & Drop** ([`kanban.spec.ts`](e2e/kanban.spec.ts)): se arrastra `ORD-0001` de Pendiente a Enviado y se comprueban la columna, el toast, el endpoint de auditoría y que el cambio sigue tras recargar.
 4. **Extra** ([`optimistic-updates.spec.ts`](e2e/optimistic-updates.spec.ts)): edición en lote persistida, y reversión del lote y del Kanban cuando la API responde `500`.
+5. **Validación de entradas** ([`create-order.spec.ts`](e2e/create-order.spec.ts)): los campos limpian al teclear signos, letras, exponentes, decimales de más y etiquetas HTML, y la API responde `400` aunque se envíen esos datos saltándose el formulario.
+
+## Seguridad
+
+- **Validación en dos capas:** al teclear ([`lib/input.ts`](lib/input.ts)) y, de forma obligatoria, en el servidor con Zod ([`lib/schemas.ts`](lib/schemas.ts)). Los montos solo aceptan decimales positivos con máximo 2 decimales (se rechazan `-5`, `1e3`, `0x10`), y los nombres solo letras, números, espacios y `. , ' & -`.
+- **Nada sensible llega al navegador:** el JavaScript público está minificado, no se publican source maps y no contiene secretos (BD, `AUTH_SECRET`, OAuth) ni código de Prisma. Se auditó descargando todos los bundles de producción.
+- **Headers de seguridad** en todas las respuestas: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` y `Permissions-Policy` ([`next.config.ts`](next.config.ts)).
+- **Sesiones** en cookie JWT cifrada (`httpOnly`); las mutaciones exigen sesión (`401` sin ella).
 
 **Simulación de sesión:** el proveedor `Credentials` con id `e2e` (botón "Entrar como tester") solo se registra cuando `E2E_TEST_MODE=true` **y** `VERCEL_ENV` no es `production`. En la URL pública no existe: el único acceso es OAuth 2.0.
 
